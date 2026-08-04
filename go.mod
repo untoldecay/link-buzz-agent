@@ -1,4 +1,4 @@
-module github.com/decaylab/link-buzz-agent
+module github.com/untoldecay/link-buzz-agent
 
 go 1.23.0
 

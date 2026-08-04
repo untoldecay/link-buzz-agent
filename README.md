@@ -10,7 +10,7 @@ and once it publishes a rich profile it drops out of `@`-autocomplete too.
 This tool fixes both by adding one *keyless* row to Desktop's local registry.
 
 ```
-go install github.com/decaylab/link-buzz-agent@latest
+go install github.com/untoldecay/link-buzz-agent@latest
 link-buzz-agent
 ```
 
@@ -76,7 +76,7 @@ it anywhere, no runtime dependencies.
 ## Building from source
 
 ```
-git clone https://github.com/decaylab/link-buzz-agent
+git clone https://github.com/untoldecay/link-buzz-agent
 cd link-buzz-agent
 go build .
 ```

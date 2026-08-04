@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/decaylab/link-buzz-agent/internal/registry"
-	"github.com/decaylab/link-buzz-agent/internal/ui"
+	"github.com/untoldecay/link-buzz-agent/internal/registry"
+	"github.com/untoldecay/link-buzz-agent/internal/ui"
 )
 
 // runRepair fixes a row that's already in the registry but that Desktop
