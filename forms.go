@@ -26,8 +26,8 @@ func promptLinkSpec(defaults registry.RowSpec) (registry.RowSpec, error) {
 		),
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Agent's Nostr public key (hex, 64 characters)").
-				Description("Not a private key — this is public information, safe to paste.").
+				Title("Please paste the remote agent's public key").
+				Description("Not a private key — this is public information, safe to paste. 64 hex characters.").
 				Placeholder("e.g. ca1b30626b8a09764c7ff33170c6f1c5c4ad985752231d206d169b2565ba2d2b").
 				Value(&spec.Pubkey).
 				Validate(validatePubkeyHex),
@@ -75,8 +75,8 @@ func promptRepairTarget() (pubkey, name string, err error) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Agent's Nostr public key (hex, 64 characters)").
-				Description("Whichever agent is already linked but won't start on mention.").
+				Title("Please paste the remote agent's public key").
+				Description("Whichever agent is already linked but won't start on mention. 64 hex characters.").
 				Value(&pubkey).
 				Validate(validatePubkeyHex),
 			huh.NewInput().
