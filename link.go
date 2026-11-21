@@ -11,19 +11,26 @@ import (
 
 const probeName = "ZZ-TEMPLATE-PROBE"
 
-// runLink walks the human through linking a remote agent into Buzz Desktop's
+// runLink walks the human through linking remote agents into Buzz Desktop's
 // local registry: back up, capture the row shape the app itself just wrote
-// for a throwaway probe agent, substitute the remote identity into it, then
-// write it back once the probe is gone and Desktop is closed.
-func runLink(path string, spec registry.RowSpec) error {
+// for a throwaway probe agent, substitute each remote identity into it, then
+// write them back once the probe is gone and Desktop is closed. One probe,
+// one backup and one write cover any number of agents.
+func runLink(path string, specs []registry.RowSpec) error {
 	const total = 6
 
 	fmt.Println()
-	fmt.Println(ui.Bold("Link an externally-hosted agent into Buzz Desktop"))
+	if len(specs) == 1 {
+		fmt.Println(ui.Bold("Link an externally-hosted agent into Buzz Desktop"))
+	} else {
+		fmt.Println(ui.Bold(fmt.Sprintf("Link %d externally-hosted agents into Buzz Desktop", len(specs))))
+	}
 	ui.Info("registry : " + path)
-	ui.Info(fmt.Sprintf("agent    : %s  %s…", spec.Name, shortKey(spec.Pubkey)))
-	ui.Info(ui.Dim("No private key is copied. Desktop will show the agent and allow"))
-	ui.Info(ui.Dim("@-mentions, but cannot start it — which is what stops it launching"))
+	for _, spec := range specs {
+		ui.Info(fmt.Sprintf("agent    : %-24s %s…", spec.Name, shortKey(spec.Pubkey)))
+	}
+	ui.Info(ui.Dim("No private key is copied. Desktop will show the agents and allow"))
+	ui.Info(ui.Dim("@-mentions, but cannot start them — which is what stops it launching"))
 	ui.Info(ui.Dim("a second copy against the same identity."))
 
 	ui.Step(1, total, "Back up the registry")
@@ -35,15 +42,29 @@ func runLink(path string, spec registry.RowSpec) error {
 	// Check BEFORE backing up. A no-op re-run must not write a backup, because
 	// that backup would contain the already-linked state and would then be
 	// the newest — making rollback restore the very thing you wanted undone.
-	if rowByPubkey(data, spec.Pubkey) != nil {
+	var todo []registry.RowSpec
+	for _, spec := range specs {
+		if row := rowByPubkey(data, spec.Pubkey); row != nil {
+			ui.Info(fmt.Sprintf("%s is already registered — skipping", spec.Name))
+			if b, _ := row["backend"].(map[string]any); b["type"] == "local" {
+				ui.Warn("  its row predates the remote marker; if a mention says 'Could not start agent':")
+				ui.Warn(fmt.Sprintf("  link-buzz-agent --repair --pubkey %s --name %q", spec.Pubkey, spec.Name))
+			}
+			continue
+		}
+		todo = append(todo, spec)
+	}
+	if len(todo) == 0 {
 		return fmt.Errorf(
-			"%s is already in the registry (pubkey %s…).\n"+
+			"%s already in the registry.\n"+
 				"  Nothing to do, and no backup was written — an extra backup here\n"+
 				"  would overwrite the one that can actually undo the original link.\n"+
 				"  Inspect with --status, or undo with --rollback",
-			spec.Name, shortKey(spec.Pubkey),
+			plural(len(specs), specs[0].Name+" is", "every listed agent is"),
 		)
 	}
+	specs = todo
+	label := names(specs)
 
 	stamp := time.Now().Format("20060102T150405")
 	backup := registry.BackupPath(path, stamp)
@@ -112,16 +133,20 @@ func runLink(path string, spec registry.RowSpec) error {
 	template := newRows[0]
 	ui.Ok(fmt.Sprintf("captured the shape of '%v' (%d fields)", template["name"], len(template)))
 
-	ui.Step(3, total, fmt.Sprintf("Build the %s row", spec.Name))
-	row, err := registry.BuildRow(template, spec)
-	if err != nil {
-		return err
+	ui.Step(3, total, "Build "+plural(len(specs), "the "+label+" row", "the rows for "+label))
+	var rows []registry.Row
+	for _, spec := range specs {
+		row, err := registry.BuildRow(template, spec)
+		if err != nil {
+			return err
+		}
+		rows = append(rows, row)
+		ui.Info(fmt.Sprintf("%-24s %s…  key: %s  autostart: %v  respond_to: %v",
+			row["name"], shortKey(fmt.Sprint(row["pubkey"])), ui.Dim("(empty)"),
+			row["start_on_app_launch"], row["respond_to"]))
 	}
-	ui.Info("pubkey             : " + fmt.Sprint(row["pubkey"]))
-	ui.Info("name               : " + fmt.Sprint(row["name"]))
-	ui.Info("private_key_nsec   : " + ui.Dim("(empty — no secret copied to this machine)"))
-	ui.Info(fmt.Sprintf("start_on_app_launch: %v", row["start_on_app_launch"]))
-	ui.Ok("Desktop cannot start this agent, by construction")
+	ui.Ok(plural(len(specs), "Desktop cannot start this agent", "Desktop cannot start these agents") +
+		", by construction (no private key copied)")
 
 	ui.Step(4, total, "Remove the probe and close the app")
 	if err := ui.ActionPause([]string{
@@ -155,8 +180,8 @@ func runLink(path string, spec registry.RowSpec) error {
 	}
 
 	ui.Step(5, total, "Write the registry")
-	cleaned = append(cleaned, row)
-	if err := ui.Confirm(fmt.Sprintf("Add %s to the registry now?", spec.Name)); err != nil {
+	cleaned = append(cleaned, rows...)
+	if err := ui.Confirm(fmt.Sprintf("Add %s to the registry now?", label)); err != nil {
 		return err
 	}
 	if err := registry.WriteStore(path, cleaned); err != nil {
@@ -166,19 +191,25 @@ func runLink(path string, spec registry.RowSpec) error {
 	if err != nil {
 		return err
 	}
-	if rowByPubkey(verify, spec.Pubkey) == nil {
-		return fmt.Errorf("wrote the file but the row is not there — restore with --rollback")
+	var missing []registry.RowSpec
+	for _, spec := range specs {
+		if rowByPubkey(verify, spec.Pubkey) == nil {
+			missing = append(missing, spec)
+		}
 	}
-	ui.Ok(fmt.Sprintf("%s registered (%d entries, mode 0600)", spec.Name, len(verify)))
+	if len(missing) > 0 {
+		return fmt.Errorf("wrote the file but %s not there — restore with --rollback", names(missing))
+	}
+	ui.Ok(fmt.Sprintf("%s registered (%d entries, mode 0600)", label, len(verify)))
 
 	ui.Step(6, total, "Check it worked")
 	if err := ui.ActionPause([]string{
 		"1. " + ui.Bold("Start Buzz Desktop."),
 		"",
-		"2. " + ui.Bold("Agents view") + " — " + spec.Name + " should have a card.",
+		"2. " + ui.Bold("Agents view") + " — " + plural(len(specs), label+" should have a card.", "each of "+label+" should have a card."),
 		"   No start/stop is expected: this machine holds no key for it.",
 		"",
-		"3. In a shared channel, type " + ui.Bold("@"+strings.ToLower(spec.Name)) + " —",
+		"3. In a shared channel, type " + ui.Bold("@"+strings.ToLower(specs[0].Name)) + " —",
 		"   it should appear in the autocomplete.",
 	}); err != nil {
 		return err
@@ -206,4 +237,19 @@ func shortKey(pubkey string) string {
 		return pubkey[:16]
 	}
 	return pubkey
+}
+
+func names(specs []registry.RowSpec) string {
+	list := make([]string, len(specs))
+	for i, s := range specs {
+		list[i] = s.Name
+	}
+	return strings.Join(list, ", ")
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }

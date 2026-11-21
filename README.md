@@ -10,9 +10,15 @@ and once it publishes a rich profile it drops out of `@`-autocomplete too.
 This tool fixes both by adding one *keyless* row to Desktop's local registry.
 
 ```
-go install github.com/untoldecay/link-buzz-agent@latest
+curl -fsSL https://raw.githubusercontent.com/untoldecay/link-buzz-agent/main/install.sh | sh
 link-buzz-agent
 ```
+
+The installer downloads the release binary for your Mac or Linux machine,
+checks its sha256 against the release's `checksums.txt` and puts it in
+`/usr/local/bin` (or `~/.local/bin` when that isn't writable; set
+`INSTALL_DIR` to choose). With Go installed you can instead run
+`go install github.com/untoldecay/link-buzz-agent@latest`.
 
 That's it — it's fully interactive. Answer a few prompts, follow the on-screen
 steps in Buzz Desktop, and it's done.
@@ -55,6 +61,38 @@ Flags exist for every step if you'd rather script it (`--pubkey`, `--name`,
 `--agent-command`, `--agent-args`, `--respond-to`) — run with no flags for the
 guided version, or see below for scripted use.
 
+## Several agents at once
+
+Put the agents in a list file, then link them all in one pass: one probe
+agent, one backup, one write. Agents this Desktop already has are skipped,
+and a re-run with nothing left to do writes nothing.
+
+```
+link-buzz-agent --all --from ~/my-agents.txt
+```
+
+The list is plain text, one agent per line (public keys only, nothing secret):
+
+```
+# pubkey (64 hex)                                                 display name
+1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f Research Agent
+2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e Code Agent
+```
+
+or a JSON array, where each entry may also set its own `respond_to`
+(`owner-only`, `allowlist`, `anyone`), `agent_command` and `agent_args`:
+
+```json
+[
+  {"pubkey": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f", "name": "Research Agent", "respond_to": "allowlist"},
+  {"pubkey": "2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e", "name": "Code Agent"}
+]
+```
+
+Entries without their own values take `--respond-to`, `--agent-command` and
+`--agent-args` from the command line. The menu (no flags) offers the same as
+"Link every agent in a list file".
+
 ## Other commands
 
 ```
@@ -62,6 +100,7 @@ link-buzz-agent --status              # what's currently registered
 link-buzz-agent --rollback            # restore the newest backup
 link-buzz-agent --rollback --backup managed-agents.json.bak-20260101T000000
 link-buzz-agent --repair --pubkey <hex> --name <name>
+link-buzz-agent --version
 ```
 
 `--repair` is for a row that's already linked but that Desktop still tries to
@@ -70,16 +109,20 @@ redoing the whole capture flow.
 
 ## Requirements
 
-Go 1.21+ to build. The resulting binary is a single static executable — copy
-it anywhere, no runtime dependencies.
+None for the release binaries: each is a single static executable. Building
+from source needs Go 1.23+.
 
 ## Building from source
 
 ```
 git clone https://github.com/untoldecay/link-buzz-agent
 cd link-buzz-agent
+go test ./...
 go build .
 ```
+
+Pushing a `v*` tag builds the macOS and Linux binaries and publishes them, with
+`checksums.txt`, as a GitHub release (`.github/workflows/release.yml`).
 
 ## License
 

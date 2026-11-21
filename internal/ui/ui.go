@@ -151,3 +151,18 @@ func Select[T comparable](title string, options ...huh.Option[T]) (T, error) {
 	}
 	return choice, nil
 }
+
+// Input asks for one line of text. Aborted on Ctrl-C.
+func Input(title, placeholder string) (string, error) {
+	var value string
+	err := huh.NewInput().
+		Title(BadgeInput + "\n\n" + title).
+		Placeholder(placeholder).
+		Value(&value).
+		Validate(huh.ValidateNotEmpty()).
+		Run()
+	if err != nil {
+		return "", Aborted{Reason: "aborted — nothing was changed"}
+	}
+	return value, nil
+}

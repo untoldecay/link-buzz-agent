@@ -3,13 +3,15 @@
 // @-mentionable, without ever copying its private key to this machine.
 //
 // Run with no flags for a guided, interactive session. Flags are available
-// for scripted use.
+// for scripted use; --all --from <file> links a whole list of agents in one
+// pass.
 package main
 
 import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -29,6 +31,9 @@ func main() {
 		backupFlag       string
 		statusFlag       bool
 		repairFlag       bool
+		allFlag          bool
+		fromFlag         string
+		versionFlag      bool
 	)
 
 	flag.StringVar(&storeFlag, "store", "", "path to managed-agents.json (auto-detected by default)")
@@ -41,7 +46,21 @@ func main() {
 	flag.StringVar(&backupFlag, "backup", "", "with --rollback: restore this backup file name instead of the newest")
 	flag.BoolVar(&statusFlag, "status", false, "show what is registered")
 	flag.BoolVar(&repairFlag, "repair", false, "fix an already-linked agent Desktop still tries to start on mention")
+	flag.BoolVar(&allFlag, "all", false, "link every agent in the --from list this Desktop doesn't have yet")
+	flag.StringVar(&fromFlag, "from", "", "with --all: agent list file (JSON array or \"<pubkey> <name>\" lines)")
+	flag.BoolVar(&versionFlag, "version", false, "print the version and exit")
 	flag.Parse()
+
+	if versionFlag {
+		fmt.Println("link-buzz-agent", version)
+		return
+	}
+	if err := registry.ValidateRespondTo(respondToFlag); err != nil {
+		ui.Die("--" + err.Error())
+	}
+	if fromFlag != "" && !allFlag {
+		ui.Die("--from goes with --all")
+	}
 
 	path, err := registry.FindStore(storeFlag)
 	if err != nil {
@@ -66,6 +85,20 @@ func main() {
 		}
 		run(runRepair(path, pubkey, name))
 
+	case allFlag:
+		if fromFlag == "" {
+			ui.Die("--all needs --from <agent list file>")
+		}
+		specs, err := loadAgentList(fromFlag, registry.RowSpec{
+			AgentCommand: agentCommandFlag,
+			AgentArgs:    strings.Fields(agentArgsFlag),
+			RespondTo:    respondToFlag,
+		})
+		if err != nil {
+			ui.Die(err.Error())
+		}
+		run(runLink(path, specs))
+
 	case pubkeyFlag != "" || nameFlag != "":
 		spec := registry.RowSpec{
 			Pubkey:       strings.ToLower(strings.TrimSpace(pubkeyFlag)),
@@ -77,7 +110,7 @@ func main() {
 		if err := validatePubkeyHex(spec.Pubkey); err != nil {
 			ui.Die("--pubkey " + err.Error())
 		}
-		run(runLink(path, spec))
+		run(runLink(path, []registry.RowSpec{spec}))
 
 	default:
 		run(runFromMenu(path))
@@ -96,6 +129,7 @@ func run(err error) {
 func runFromMenu(path string) error {
 	choice, err := ui.Select("What would you like to do?",
 		huh.NewOption("Link a new agent", "link"),
+		huh.NewOption("Link every agent in a list file", "all"),
 		huh.NewOption("Check what's registered", "status"),
 		huh.NewOption("Repair an already-linked agent", "repair"),
 		huh.NewOption("Rollback a previous change", "rollback"),
@@ -114,7 +148,17 @@ func runFromMenu(path string) error {
 		if err != nil {
 			return err
 		}
-		return runLink(path, spec)
+		return runLink(path, []registry.RowSpec{spec})
+	case "all":
+		file, err := ui.Input("Path to the agent list file", "e.g. ~/outgrey-agents.json")
+		if err != nil {
+			return err
+		}
+		specs, err := loadAgentList(file, registry.RowSpec{RespondTo: "owner-only"})
+		if err != nil {
+			return err
+		}
+		return runLink(path, specs)
 	case "status":
 		return runStatus(path)
 	case "repair":
@@ -127,4 +171,25 @@ func runFromMenu(path string) error {
 		return runRollback(path, "")
 	}
 	return nil
+}
+
+// version is set at release time with -ldflags "-X main.version=…".
+var version = "dev"
+
+func loadAgentList(file string, defaults registry.RowSpec) ([]registry.RowSpec, error) {
+	file = strings.TrimSpace(file)
+	if strings.HasPrefix(file, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			file = filepath.Join(home, file[2:])
+		}
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, fmt.Errorf("agent list: %w", err)
+	}
+	specs, err := registry.ParseAgentList(data, defaults)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", file, err)
+	}
+	return specs, nil
 }

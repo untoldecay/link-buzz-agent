@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -109,18 +108,5 @@ func promptRepairTarget() (pubkey, name string, err error) {
 }
 
 func validatePubkeyHex(s string) error {
-	s = strings.TrimSpace(s)
-	if len(s) != 64 {
-		return fmt.Errorf("must be exactly 64 hex characters, got %d", len(s))
-	}
-	for _, c := range s {
-		if !isHexChar(c) {
-			return fmt.Errorf("must be hex (0-9, a-f) — %q is not valid", string(c))
-		}
-	}
-	return nil
-}
-
-func isHexChar(c rune) bool {
-	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+	return registry.ValidatePubkey(strings.TrimSpace(s))
 }
