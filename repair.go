@@ -46,7 +46,7 @@ func runRepair(path, pubkey, name string) error {
 	stamp := time.Now().Format("20060102T150405")
 	backup := registry.BackupPath(path, stamp)
 
-	if err := ui.ActionPause("YOUR TURN", []string{
+	if err := ui.ActionPause([]string{
 		ui.Bold("QUIT Buzz Desktop completely."),
 		"Not just the window — the app rewrites this file while running,",
 		"so it must be closed or the change will be lost.",
@@ -83,7 +83,7 @@ func runRepair(path, pubkey, name string) error {
 	ui.Info(fmt.Sprintf("backend_agent_id : %v", row["backend_agent_id"]))
 
 	displayName := fmt.Sprint(row["name"])
-	if err := ui.ActionPause("YOUR TURN", []string{
+	if err := ui.ActionPause([]string{
 		"1. " + ui.Bold("Start Buzz Desktop."),
 		"",
 		"2. In a shared channel, type " + ui.Bold("@"+strings.ToLower(displayName)) + " and send.",

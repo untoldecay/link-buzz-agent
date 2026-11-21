@@ -64,7 +64,7 @@ func runLink(path string, spec registry.RowSpec) error {
 	ui.Step(2, total, "Let the app write a row for us to copy")
 	ui.Info("Rather than guess the file format, we copy the shape of a row that")
 	ui.Info("your own build just wrote. That way it matches your version exactly.")
-	if err := ui.ActionPause("YOUR TURN", []string{
+	if err := ui.ActionPause([]string{
 		"In Buzz Desktop, go to the " + ui.Bold("Agents") + " view.",
 		"",
 		"1. Create a new agent. Name it exactly:  " + ui.Bold(probeName),
@@ -124,7 +124,7 @@ func runLink(path string, spec registry.RowSpec) error {
 	ui.Ok("Desktop cannot start this agent, by construction")
 
 	ui.Step(4, total, "Remove the probe and close the app")
-	if err := ui.ActionPause("YOUR TURN", []string{
+	if err := ui.ActionPause([]string{
 		"1. In Buzz Desktop, " + ui.Bold("delete the agent "+probeName) + ".",
 		"   (Agents view -> its card -> delete.)",
 		"",
@@ -172,7 +172,7 @@ func runLink(path string, spec registry.RowSpec) error {
 	ui.Ok(fmt.Sprintf("%s registered (%d entries, mode 0600)", spec.Name, len(verify)))
 
 	ui.Step(6, total, "Check it worked")
-	if err := ui.ActionPause("YOUR TURN", []string{
+	if err := ui.ActionPause([]string{
 		"1. " + ui.Bold("Start Buzz Desktop."),
 		"",
 		"2. " + ui.Bold("Agents view") + " — " + spec.Name + " should have a card.",

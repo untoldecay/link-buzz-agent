@@ -55,7 +55,7 @@ func runRollback(path, which string) error {
 	fmt.Println(ui.Bold("Restore:") + "  " + strings.Join(summarize(chosen), ", "))
 	fmt.Println("          " + ui.Dim("from "+filepath.Base(chosen)))
 
-	if err := ui.ActionPause("YOUR TURN", []string{
+	if err := ui.ActionPause([]string{
 		ui.Bold("QUIT Buzz Desktop completely."),
 		"Not just the window — quit the application, so it stops",
 		"holding and rewriting this file.",

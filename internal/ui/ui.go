@@ -28,6 +28,28 @@ var (
 	actionTitleStyle = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(lipgloss.Color("214"))
+
+	// Blue, not amber: a read-only screen must be distinguishable from one
+	// that is waiting on the user without reading a word of either.
+	infoBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("39")).
+			Padding(1, 2).
+			MarginTop(1)
+
+	infoTitleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("39"))
+)
+
+// Screen badges. Every screen carries one so the user always knows, without
+// reading the body, whether it is telling them something or waiting on them.
+// The single most confusing thing about a guided CLI is not knowing which.
+const (
+	BadgeRead    = "READ  ·  nothing to do yet"
+	BadgeAction  = "ACTION NEEDED  ·  do this in Buzz Desktop, then come back"
+	BadgeInput   = "YOUR INPUT  ·  type or paste below"
+	BadgeConfirm = "CONFIRM  ·  this one writes to disk"
 )
 
 // Aborted is returned by any step the user declined or Ctrl-C'd out of.
@@ -76,11 +98,18 @@ func Die(msg string) {
 // done. Mirrors the original script's "press ENTER when done" pause: the
 // continue button is pre-selected, so a bare Enter advances. Cancel is still
 // one arrow-key away. Returns Aborted if they cancel or Ctrl-C.
-func ActionPause(title string, lines []string) error {
+func ActionPause(lines []string) error {
 	body := strings.Join(lines, "\n")
-	box := actionBoxStyle.Render(actionTitleStyle.Render(title) + "\n\n" + body)
+	box := actionBoxStyle.Render(actionTitleStyle.Render(BadgeAction) + "\n\n" + body)
 	fmt.Println(box)
 	return confirm("Done with that?", true)
+}
+
+// InfoBox shows something the user only needs to read. Styled distinctly from
+// ActionPause so "read this" and "do this" are never confused at a glance.
+func InfoBox(lines []string) {
+	body := strings.Join(lines, "\n")
+	fmt.Println(infoBoxStyle.Render(infoTitleStyle.Render(BadgeRead) + "\n\n" + body))
 }
 
 // Confirm asks a yes/no question that gates a real write (registering an
