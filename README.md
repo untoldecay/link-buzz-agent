@@ -100,6 +100,7 @@ link-buzz-agent --status              # what's currently registered
 link-buzz-agent --rollback            # restore the newest backup
 link-buzz-agent --rollback --backup managed-agents.json.bak-20260101T000000
 link-buzz-agent --repair --pubkey <hex> --name <name>
+link-buzz-agent --unlink --pubkey <hex>   # remove a retired agent's card
 link-buzz-agent --version
 ```
 

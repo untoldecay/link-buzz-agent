@@ -34,6 +34,7 @@ func main() {
 		allFlag          bool
 		fromFlag         string
 		versionFlag      bool
+		unlinkFlag       bool
 	)
 
 	flag.StringVar(&storeFlag, "store", "", "path to managed-agents.json (auto-detected by default)")
@@ -48,6 +49,7 @@ func main() {
 	flag.BoolVar(&repairFlag, "repair", false, "fix an already-linked agent Desktop still tries to start on mention")
 	flag.BoolVar(&allFlag, "all", false, "link every agent in the --from list this Desktop doesn't have yet")
 	flag.StringVar(&fromFlag, "from", "", "with --all: agent list file (JSON array or \"<pubkey> <name>\" lines)")
+	flag.BoolVar(&unlinkFlag, "unlink", false, "with --pubkey: remove a linked agent's row (retired or moved agents)")
 	flag.BoolVar(&versionFlag, "version", false, "print the version and exit")
 	flag.Parse()
 
@@ -84,6 +86,13 @@ func main() {
 			}
 		}
 		run(runRepair(path, pubkey, name))
+
+	case unlinkFlag:
+		pubkey := strings.ToLower(strings.TrimSpace(pubkeyFlag))
+		if err := validatePubkeyHex(pubkey); err != nil {
+			ui.Die("--unlink needs --pubkey: " + err.Error())
+		}
+		run(runUnlink(path, pubkey))
 
 	case allFlag:
 		if fromFlag == "" {
